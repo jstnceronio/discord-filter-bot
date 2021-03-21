@@ -16,12 +16,14 @@ client.on('ready', () => {
 
 client.on('message', (message) => {
     // ignore bot msgs 
-    // if (message.author.bot) return;
-    // check prefix 
+    if (message.author.bot) return;
+
+    // react to @-tag
     if (message.mentions.has(client.user.id)) {
         message.channel.send('People always ask who is the Impostor? And not how is the Impostor? 😩');
     };
 
+    // check prefix 
     if (message.content.startsWith(PREFIX)) {
      // set cmd & args   
      const [CMD_NAME, ...args] = getCMD(message);
