@@ -47,8 +47,8 @@ function switchCMD(message, CMD_NAME, args, db) {
         case 'read':
             readDB(message, db);
             break;
-        case 'clear':
-            clearDB(message, db);
+        case 'remove':
+            clearDB(message, db, args);
             break;  
         case 'change':
             changeWord(message, db, args);
@@ -110,11 +110,19 @@ function readDB(message, db) {
       console.log('successfully read from db!');
 }
 
-function clearDB(message, db) {
+function clearDB(message, db, args) {
     //
-    // TODO
+    // TODO: clear entire db with specific cmd
     //
-    // message.channel.send("DB has been cleared!");
+    if (args.length != 1) {
+        message.reply('Invalid usage! Please use following syntax: ~remove <word>');
+        return;
+    }
+
+    db.run(`DELETE FROM data WHERE keyword = ?`, [args[0]]);
+
+    message.reply(`Deleted entry ${args[0]} !`);
+    console.log('Removed from DB!')
 }
 
 function changeWord(message, db, args) {
