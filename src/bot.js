@@ -17,7 +17,7 @@ client.on('ready', () => {
         type: 'PLAYING'
     });
     // prepare sqlite db
-    let db = new sqlite.Database('./testdb.db', sqlite.OPEN_READWRITE | sqlite.OPEN_CREATE);
+    let db = new sqlite.Database('./keywords.db', sqlite.OPEN_READWRITE | sqlite.OPEN_CREATE);
 });
 
 client.on('message', (message) => {
@@ -35,7 +35,7 @@ client.on('message', (message) => {
      const [CMD_NAME, ...args] = getCMD(message);
      // check cmds
      // prep db
-     let db = new sqlite.Database('./testdb.db', sqlite.OPEN_READWRITE);
+     let db = new sqlite.Database('./keywords.db', sqlite.OPEN_READWRITE);
      switchCMD(message, CMD_NAME, args, db);
     }    
 });
@@ -90,12 +90,9 @@ function writeIntoFile(args, message, db) {
 }
 
 function outputFile(message, db) {
-
     //
     // WIP 
     //
-    // let db = new sqlite.Database('./testdb.db', sqlite.OPEN_READWRITE);
-
     let query = `SELECT keyword FROM data`; 
       db.each(query, (err, row) => {
             if (err) {
