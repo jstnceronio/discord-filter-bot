@@ -7,7 +7,6 @@ const { get } = require('http');
 const path = require('path');
 const client = new Client();
 const PREFIX = '~';
-const filename = 'Output.txt';
 
 client.on('ready', () => {
     // validate login
@@ -46,7 +45,7 @@ function switchCMD(message, CMD_NAME, args, db) {
             writeIntoFile(args, message, db);
             break;
         case 'read':
-            outputFile(message, db);
+            readDB(message, db);
             break;
         case 'clear':
             clearDB(message, db);
@@ -89,7 +88,7 @@ function writeIntoFile(args, message, db) {
       console.log('wrote into db!');
 }
 
-function outputFile(message, db) {
+function readDB(message, db) {
     //
     // WIP 
     //
