@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const sqlite = require('sqlite3').verbose();
+const { join } = require('bluebird');
 const { Client } = require('discord.js');
 const fs = require('fs'); 
 const { get } = require('http');
@@ -45,20 +46,42 @@ function switchCMD(message, CMD_NAME, args, db) {
             writeIntoFile(args, message, db);
             break;
         case 'read':
-            readDB(message, db);
+            // readDB(message, db);
             break;
         case 'remove':
             clearDB(message, db, args);
             break;  
         case 'change':
             changeWord(message, db, args);
-            break;    
+            break;
+        case 'join':
+            joinVC(message);
+            break;        
         default:
             // invalid command
             break;
       }
 }
 
+function joinVC(message) {
+
+    // get current vc of member
+    var VC = message.member.voice.channel;
+    // return if not in vc
+    if (!VC) 
+        return message.reply('Command only valid in vc!');
+
+    // join members vc
+    VC.join()
+        .then(connection => {
+            // play file
+            const dispatcher = connection.play('C:/Users/justi/Documents/Projects/js-filter-bot/example-files/dababy.mp3');
+            // leave when finished
+            dispatcher.on('finish', end => {VC.leave()});
+        })
+        .catch(console.error);
+}
+ 
 function getCMD(message) {
     //
     // prep msg
