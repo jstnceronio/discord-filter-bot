@@ -30,6 +30,7 @@
     "soundcloud-scraper": "^4.0.3",
     "spotify-url-info": "^2.2.0",
     "sqlite3": "^5.0.2",
+    "youtube-mp3-downloader": "^0.7.7",
     "youtube-sr": "^4.0.3",
     "ytdl-core": "^4.5.0"
   }

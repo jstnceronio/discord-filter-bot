@@ -4,10 +4,12 @@ const sqlite = require('sqlite3').verbose();
 const { join } = require('bluebird');
 const { Client } = require('discord.js');
 const fs = require('fs'); 
-const { get } = require('http');
+const http = require('http');
 const path = require('path');
 const client = new Client();
 const PREFIX = '~';
+var YoutubeMp3Downloader = require("youtube-mp3-downloader");
+var filePath;
 
 client.on('ready', () => {
     // validate login
@@ -43,7 +45,8 @@ client.on('message', (message) => {
 function switchCMD(message, CMD_NAME, args, db) {
     switch (CMD_NAME) {
         case 'add':
-            writeIntoFile(args, message, db);
+            addKeywordToDB(args, message, db);
+            grabMP3FromYT(db, args[0], args[1]);
             break;
         case 'read':
             // readDB(message, db);
@@ -56,7 +59,10 @@ function switchCMD(message, CMD_NAME, args, db) {
             break;
         case 'join':
             joinVC(message);
-            break;        
+            break;     
+        case 'grabMP3':
+            grabMP3FromYT(message, args);
+            break;
         default:
             // invalid command
             break;
@@ -75,7 +81,7 @@ function joinVC(message) {
     VC.join()
         .then(connection => {
             // play file
-            const dispatcher = connection.play('C:/Users/justi/Documents/Projects/js-filter-bot/example-files/dababy.mp3');
+            const dispatcher = connection.play('./example-files/dababy.mp3');
             // leave when finished
             dispatcher.on('finish', end => {VC.leave()});
         })
@@ -91,24 +97,52 @@ function getCMD(message) {
     .split(" ");
 }
 
-function writeIntoFile(args, message, db) {
+function addKeywordAndUrl(args, message, db) {
+    
+    var DBKeyword = args[0];
+    var YTUrl = args[1];
+
+    addKeywordToDB(args, message, db);
+
+}
+
+/**
+ * syntax: ~add <keyword:string> <audio:blob>
+ * @param {cmd args} args 
+ * @param {users msg info} message 
+ * @param {sqlite3 db} db 
+ */
+function addKeywordToDB(args, message, db) {
       //
-      // garner user infos & prepare db
+      // validate args & data
+      // 
+      if (args.length != 2) {
+        message.reply('Invalid usage! Please use following syntax: ~add <word> <url>');
+        return;
+      }
+
+      //
+      // garner user infos 
       //
       let userid = message.author.id;
-      // db.run(`CREATE TABLE IF NOT EXISTS data(userid INTEGER NOT NULL, keyword TEXT NOT NULL, audio BLOB)`);
-
+      
       //
       // insert data into db
       //
-      let insertdata = db.prepare('INSERT INTO data VALUES(?,?,?)');
-      insertdata.run(userid, args, ' ');
-      insertdata.finalize();
-      db.close();
-
-      // validate
-
-      console.log('wrote into db!');
+      try {
+        db.run(`INSERT INTO data VALUES(?,?,?)`, userid, args[0], path, function(err) {
+            if (err) {
+              // keyword propably already exists => keyword unique constraint  
+              message.reply(`Keyword ${args[0]} already exists! Please consider changing or removing it!`);
+              return console.log(err.message);
+            }
+            // success!
+            console.log('wrote into db! keyword: ' + args[0]);
+          });
+      } catch (error) {
+          // smth whent very south
+          console.log(error);
+      }  
 }
 
 function readDB(message, db) {
@@ -134,18 +168,28 @@ function readDB(message, db) {
 }
 
 function clearDB(message, db, args) {
+    
     //
-    // TODO: clear entire db with specific cmd
+    // validate args
     //
     if (args.length != 1) {
         message.reply('Invalid usage! Please use following syntax: ~remove <word>');
         return;
     }
 
+    //
+    // clear entire db with specific cmd
+    //
+    if (args[0].toLowerCase() == 'all') {
+        db.run(`DELETE FROM data`);
+        console.log('Removed all from DB!');
+        return;
+    }
+
     db.run(`DELETE FROM data WHERE keyword = ?`, [args[0]]);
 
     message.reply(`Deleted entry ${args[0]} !`);
-    console.log('Removed from DB!')
+    console.log('Removed from DB!');
 }
 
 function changeWord(message, db, args) {
@@ -164,6 +208,44 @@ function changeWord(message, db, args) {
 
     message.reply(`Replaced ${oldWord} with ${newWord}!`);
     console.log('replaced word!');
+}
+
+function grabMP3FromYT(db, keyword, url) {
+
+    console.log('grabbing!');
+
+    var YD = new YoutubeMp3Downloader({
+        "ffmpegPath": "C:\\ffmpeg\\bin\\ffmpeg.exe",        
+        "outputPath": "./example-files/downloads",    
+        "youtubeVideoQuality": "highestaudio", 
+        "queueParallelism": 2,                 
+        "progressTimeout": 2000,               
+        "allowWebm": false                    
+    });
+
+    YD.download(url);
+
+    YD.on('finished', function(err, data) {
+        console.log('finished!');
+        // update db
+        updateKeywordWithUrl(db, keyword, data.file);
+    });
+    YD.on('error', function(error) {
+        console.log('error!' + error);
+    });
+    YD.on('progress', function(progress) {
+        console.log('progress!');
+    });
+}
+
+function updateKeywordWithUrl(db, keyword, url) {
+
+    //
+    // update keyword with url
+    //
+    db.run(`UPDATE data SET audio = ? WHERE keyword = ?`, [url, keyword]);
+    db.close();
+    console.log(`Set ${url} for ${keyword}!`);   
 }
 
 //
