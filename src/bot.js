@@ -7,19 +7,19 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const client = new Client();
+const fsExtra = require('fs-extra');
 const PREFIX = '~';
 var YoutubeMp3Downloader = require("youtube-mp3-downloader");
-var filePath;
+let filePath;
 
 client.on('ready', () => {
+
     // validate login
     console.log(`${client.user.username} has logged in.`);
     // set activity
     client.user.setActivity('Among Us', {
         type: 'PLAYING'
     });
-    // prepare sqlite db
-    let db = new sqlite.Database('./keywords.db', sqlite.OPEN_READWRITE | sqlite.OPEN_CREATE);
 });
 
 client.on('message', (message) => {
@@ -40,6 +40,7 @@ client.on('message', (message) => {
      let db = new sqlite.Database('./keywords.db', sqlite.OPEN_READWRITE);
      switchCMD(message, CMD_NAME, args, db);
     }    
+
 });
 
 function switchCMD(message, CMD_NAME, args, db) {
@@ -58,19 +59,43 @@ function switchCMD(message, CMD_NAME, args, db) {
             changeWord(message, db, args);
             break;
         case 'join':
-            joinVC(message);
+            // joinVC(message);
             break;     
         case 'grabMP3':
             grabMP3FromYT(message, args);
             break;
         default:
-            // invalid command
-            break;
+            // search for keywords
+            searchDB(message, CMD_NAME, db);
+            break; 
       }
 }
 
-function joinVC(message) {
+function searchDB(message, keyword, db) {
 
+    console.log('Okay looking for ' + keyword);
+
+    let sql = `SELECT audio
+           FROM data
+           WHERE keyword  = ?`;
+
+    // first row only
+    db.get(sql, [keyword], (err, row) => {
+        if (err) {
+            return console.error(err.message);
+        }
+        
+        return row
+            ? playFile(message, row.audio)
+            : console.log(`No entry found with the keyword ${keyword}`);
+    });
+    db.close();
+}
+
+
+function playFile(message, url) {
+    
+    console.log(url);
     // get current vc of member
     var VC = message.member.voice.channel;
     // return if not in vc
@@ -81,9 +106,11 @@ function joinVC(message) {
     VC.join()
         .then(connection => {
             // play file
-            const dispatcher = connection.play('./example-files/dababy.mp3');
+            const dispatcher = connection.play(url);
             // leave when finished
-            dispatcher.on('finish', end => {VC.leave()});
+            dispatcher.on('finish', () => {
+                VC.leave();
+            });
         })
         .catch(console.error);
 }
@@ -95,15 +122,6 @@ function getCMD(message) {
     return message.content.trim()
     .substring(PREFIX.length)
     .split(" ");
-}
-
-function addKeywordAndUrl(args, message, db) {
-    
-    var DBKeyword = args[0];
-    var YTUrl = args[1];
-
-    addKeywordToDB(args, message, db);
-
 }
 
 /**
@@ -130,7 +148,7 @@ function addKeywordToDB(args, message, db) {
       // insert data into db
       //
       try {
-        db.run(`INSERT INTO data VALUES(?,?,?)`, userid, args[0], path, function(err) {
+        db.run(`INSERT INTO data VALUES(?,?,?)`, userid, args[0], "Undefined", function(err) {
             if (err) {
               // keyword propably already exists => keyword unique constraint  
               message.reply(`Keyword ${args[0]} already exists! Please consider changing or removing it!`);
@@ -183,13 +201,39 @@ function clearDB(message, db, args) {
     if (args[0].toLowerCase() == 'all') {
         db.run(`DELETE FROM data`);
         console.log('Removed all from DB!');
+        fsExtra.emptyDirSync('./example-files/downloads');
+        console.log('Removed all files in downloads!');
         return;
     }
-
+    removeFile(args[0], db);
     db.run(`DELETE FROM data WHERE keyword = ?`, [args[0]]);
-
     message.reply(`Deleted entry ${args[0]} !`);
     console.log('Removed from DB!');
+}
+
+function removeFile(keyword, db) {
+
+    let sql = `SELECT audio
+           FROM data
+           WHERE keyword  = ?`;
+
+    db.get(sql, [keyword], (err, row) => {
+        if (err) {
+            return console.error(err.message);
+        }
+        
+        if (row) {
+            fs.unlink(row.audio, function (err) {
+                if (err) throw err;
+                // if no error, file has been deleted successfully
+                console.log(`File ${keyword} deleted!`);
+            });
+        } else {
+            console.log(`No entry found with the keyword ${keyword}`);
+        }
+    });
+
+    
 }
 
 function changeWord(message, db, args) {
@@ -212,10 +256,13 @@ function changeWord(message, db, args) {
 
 function grabMP3FromYT(db, keyword, url) {
 
+    if (url == 'test')
+        return;
+    
     console.log('grabbing!');
 
     var YD = new YoutubeMp3Downloader({
-        "ffmpegPath": "C:\\ffmpeg\\bin\\ffmpeg.exe",        
+        "ffmpegPath": "E:\\ffmpeg\\bin\\ffmpeg.exe",        
         "outputPath": "./example-files/downloads",    
         "youtubeVideoQuality": "highestaudio", 
         "queueParallelism": 2,                 
@@ -223,7 +270,7 @@ function grabMP3FromYT(db, keyword, url) {
         "allowWebm": false                    
     });
 
-    YD.download(url);
+    YD.download(url, `${url}.mp3`);
 
     YD.on('finished', function(err, data) {
         console.log('finished!');
@@ -239,7 +286,7 @@ function grabMP3FromYT(db, keyword, url) {
 }
 
 function updateKeywordWithUrl(db, keyword, url) {
-
+    console.log(url);
     //
     // update keyword with url
     //
