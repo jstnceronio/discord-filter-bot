@@ -95,7 +95,7 @@ function searchDB(message, keyword, db) {
 
 function playFile(message, url) {
     
-    console.log(url);
+    console.log('trying to play ' + url);
     // get current vc of member
     var VC = message.member.voice.channel;
     // return if not in vc
@@ -107,6 +107,7 @@ function playFile(message, url) {
         .then(connection => {
             // play file
             const dispatcher = connection.play(url);
+
             // leave when finished
             dispatcher.on('finish', () => {
                 VC.leave();
@@ -263,7 +264,7 @@ function grabMP3FromYT(db, keyword, url) {
 
     var YD = new YoutubeMp3Downloader({
         "ffmpegPath": "E:\\ffmpeg\\bin\\ffmpeg.exe",        
-        "outputPath": "./example-files/downloads",    
+        "outputPath": "E:/JS/discord-filter-bot/example-files/downloads",    
         "youtubeVideoQuality": "highestaudio", 
         "queueParallelism": 2,                 
         "progressTimeout": 2000,               
